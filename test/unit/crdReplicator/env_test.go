@@ -214,10 +214,10 @@ func getClusterConfig() *configv1alpha1.ClusterConfig {
 			LiqonetConfig: configv1alpha1.LiqonetConfig{
 				ReservedSubnets: []string{"10.0.0.0/16"},
 				VxlanNetConfig: liqonet.VxlanNetConfig{
-					Network:    "",
-					DeviceName: "",
-					Port:       "",
-					Vni:        "",
+					NetworkPrefix: "",
+					DeviceName:    "",
+					Port:          "",
+					Vni:           "",
 				},
 			},
 			DispatcherConfig: configv1alpha1.DispatcherConfig{ResourcesToReplicate: []configv1alpha1.Resource{{

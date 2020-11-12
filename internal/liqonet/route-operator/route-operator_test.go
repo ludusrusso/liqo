@@ -1,4 +1,4 @@
-package liqonetOperators
+package route_operator
 
 import (
 	netv1alpha1 "github.com/liqotech/liqo/apis/net/v1alpha1"
@@ -21,17 +21,16 @@ func GetTunnelEndpointCR() *netv1alpha1.TunnelEndpoint {
 		TypeMeta:   metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{},
 		Spec: netv1alpha1.TunnelEndpointSpec{
-			ClusterID:      "cluster-test",
-			PodCIDR:        "10.100.0.0/16",
-			TunnelPublicIP: "192.168.5.1",
+			ClusterID:  "cluster-test",
+			PodCIDR:    "10.100.0.0/16",
+			EndpointIP: "192.168.5.1",
 		},
 		Status: netv1alpha1.TunnelEndpointStatus{
 			Phase:                 "",
 			LocalRemappedPodCIDR:  "None",
 			RemoteRemappedPodCIDR: "None",
-			NATEnabled:            false,
-			RemoteTunnelPublicIP:  "192.168.10.1",
-			LocalTunnelPublicIP:   "192.168.5.1",
+			RemoteEndpointIP:      "192.168.10.1",
+			LocalEndpointIP:       "192.168.5.1",
 			TunnelIFaceIndex:      0,
 			TunnelIFaceName:       "testtunnel",
 		},

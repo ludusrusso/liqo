@@ -39,7 +39,7 @@ func InstallGreTunnel(endpoint *netv1alpha1.TunnelEndpoint) (int, string, error)
 	if err != nil {
 		return 0, "", err
 	}
-	remote := net.ParseIP(endpoint.Spec.TunnelPublicIP)
+	remote := net.ParseIP(endpoint.Spec.EndpointIP)
 	ttl := tunnelTtl
 	attr := gretunAttributes{
 		name:   name,

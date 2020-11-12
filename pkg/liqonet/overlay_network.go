@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"io/ioutil"
-	"k8s.io/client-go/kubernetes"
 	"net"
 	"os"
 	"strconv"
@@ -18,42 +17,38 @@ const (
 )
 
 type VxlanNetConfig struct {
-	Network    string `json:"Network"`
-	DeviceName string `json:"DeviceName"`
-	Port       string `json:"Port"`
-	Vni        string `json:"Vni"`
+	NetworkPrefix string `json:"NetworkPrefix"`
+	DeviceName    string `json:"DeviceName"`
+	Port          string `json:"Port"`
+	Vni           string `json:"Vni"`
 }
 
-func CreateVxLANInterface(clientset *kubernetes.Clientset, vxlanConfig VxlanNetConfig) error {
-	podIPAddr, err := getPodIP()
+func CreateVxLANInterface(vxlanConfig VxlanNetConfig)( *VxlanDevice, error) {
+	podIPAddr, err := GetPodIP()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	token := strings.Split(vxlanConfig.Network, "/")
-	vxlanNet := token[0]
-
 	//get the mtu of the default interface
 	mtu, err := getDefaultIfaceMTU()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	//derive IP for the vxlan device
 	//take the last octet of the podIP
 	//TODO: use & and | operators with masks
 	temp := strings.Split(podIPAddr.String(), ".")
-	temp1 := strings.Split(vxlanNet, ".")
-	vxlanIPString := temp1[0] + "." + temp1[1] + "." + temp1[2] + "." + temp[3]
+	vxlanIPString := vxlanConfig.NetworkPrefix + "." + temp[1] + "." + temp[2] + "." + temp[3]
 	vxlanIP := net.ParseIP(vxlanIPString)
 
 	vxlanMTU := mtu - vxlanOverhead
 	vni, err := strconv.Atoi(vxlanConfig.Vni)
 	if err != nil {
-		return fmt.Errorf("unable to convert vxlan vni \"%s\" from string to int: %v", vxlanConfig.Vni, err)
+		return nil, fmt.Errorf("unable to convert vxlan vni \"%s\" from string to int: %v", vxlanConfig.Vni, err)
 	}
 	port, err := strconv.Atoi(vxlanConfig.Port)
 	if err != nil {
-		return fmt.Errorf("unable to convert vxlan port \"%s\" from string to int: %v", vxlanConfig.Port, err)
+		return nil, fmt.Errorf("unable to convert vxlan port \"%s\" from string to int: %v", vxlanConfig.Port, err)
 	}
 	attr := &VxlanDeviceAttrs{
 		Vni:      uint32(vni),
@@ -64,53 +59,19 @@ func CreateVxLANInterface(clientset *kubernetes.Clientset, vxlanConfig VxlanNetC
 	}
 	vxlanDev, err := NewVXLANDevice(attr)
 	if err != nil {
-		return fmt.Errorf("failed to create vxlan interface on node with ip -> %s: %v", podIPAddr.String(), err)
+		return nil, fmt.Errorf("failed to create vxlan interface on node with ip -> %s: %v", podIPAddr.String(), err)
 	}
-	err = vxlanDev.ConfigureIPAddress(vxlanIP, net.IPv4Mask(255, 255, 255, 0))
+	err = vxlanDev.ConfigureIPAddress(vxlanIP, net.IPv4Mask(240, 0, 0, 0))
 	if err != nil {
-		return fmt.Errorf("failed to configure ip in vxlan interface on node with ip -> %s: %v", podIPAddr.String(), err)
+		return nil, fmt.Errorf("failed to configure ip in vxlan interface on node with ip -> %s: %v", podIPAddr.String(), err)
 	}
-
-	remoteVETPs, err := getRemoteVTEPS(clientset)
-	if err != nil {
-		return err
-	}
-
-	for _, vtep := range remoteVETPs {
-		macAddr, err := net.ParseMAC("00:00:00:00:00:00")
-		if err != nil {
-			return fmt.Errorf("unable to parse mac address. %v", err)
+	if err = vxlanDev.EnableRPFilter(); err != nil{
+			return nil, err
 		}
-		fdbEntry := Neighbor{
-			MAC: macAddr,
-			IP:  net.ParseIP(vtep),
-		}
-		err = vxlanDev.AddFDB(fdbEntry)
-		if err != nil {
-			return fmt.Errorf("an error occured while adding an fdb entry : %v", err)
-		}
-	}
-	return nil
+	return vxlanDev, nil
 }
 
-//this function enables the rp_filter on each vxlan interface on the node
-func Enable_rp_filter() error {
-	//list all the network interfaces on the host
-	ifaces_list, err := netlink.LinkList()
-	if err != nil {
-		return fmt.Errorf("unable to retrieve the all the network interfaces: %v", err)
-	}
-	for index := range ifaces_list {
-		if ifaces_list[index].Type() == "vxlan" {
-			// Enable loose mode reverse path filtering on the vxlan interface.
-			err = ioutil.WriteFile("/proc/sys/net/ipv4/conf/"+ifaces_list[index].Attrs().Name+"/rp_filter", []byte("2"), 0600)
-			if err != nil {
-				return fmt.Errorf("unable to update vxlan rp_filter proc entry for interface %s, err: %s", ifaces_list[index].Attrs().Name, err)
-			}
-		}
-	}
-	return nil
-}
+
 
 func getDefaultIfaceMTU() (int, error) {
 	//search for the default route and return the link associated to the route
@@ -150,7 +111,7 @@ func ReadVxlanNetConfig(defaultConfig VxlanNetConfig) (VxlanNetConfig, error) {
 		if err != nil {
 			return config, fmt.Errorf("an error occured while unmarshalling \"%s\" configuration file: %v", pathToConfigFile, err)
 		}
-		if config.Network == "" || config.Port == "" || config.DeviceName == "" || config.Vni == "" {
+		if config.NetworkPrefix == "" || config.Port == "" || config.DeviceName == "" || config.Vni == "" {
 			return config, errors.New("some configuration fields are missing in \"" + pathToConfigFile + "\", please check your configuration.")
 		}
 		return config, nil

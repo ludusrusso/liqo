@@ -362,12 +362,12 @@ func TestCreateNetConfigFromForeignClusterOutgoingJoined(t *testing.T) {
 			//create foreign cluster
 			_, err = tec.DynClient.Resource(controller.ForeignClusterGVR).Create(context.TODO(), &unstructured.Unstructured{Object: pReqObj}, metav1.CreateOptions{})
 			assert.Nil(t, err, "should be nil")
-			time.Sleep(2 * time.Second)
+			time.Sleep(10 * time.Second)
 			netConfig, err := getNetworkConfigByLabel(fc)
 			assert.Nil(t, err, "error should be nil")
 			assert.Equal(t, fc.Spec.ClusterIdentity.ClusterID, netConfig.Spec.ClusterID, "should be equal")
 			assert.Equal(t, tec.PodCIDR, netConfig.Spec.PodCIDR, "should be equal")
-			assert.Equal(t, tec.GatewayIP, netConfig.Spec.TunnelPublicIP, "should be equal")
+			assert.Equal(t, tec.GatewayIP, netConfig.Spec.EndpointIP, "should be equal")
 			labels := netConfig.GetLabels()
 			assert.Equal(t, "true", labels[crdReplicator.LocalLabelSelector])
 			assert.Equal(t, fc.Spec.ClusterIdentity.ClusterID, labels[crdReplicator.DestinationLabel])
@@ -403,9 +403,9 @@ func getNetworkConfig() *netv1alpha1.NetworkConfig {
 			Name: "netconfig-1",
 		},
 		Spec: netv1alpha1.NetworkConfigSpec{
-			ClusterID:      "localclusterid",
-			PodCIDR:        "10.2.0.0/16",
-			TunnelPublicIP: "192.168.1.1",
+			ClusterID:  "localclusterid",
+			PodCIDR:    "10.2.0.0/16",
+			EndpointIP: "192.168.1.1",
 		},
 		Status: netv1alpha1.NetworkConfigStatus{},
 	}
@@ -423,7 +423,7 @@ func getNetworkConfigByLabel(fc discoveryv1alpha1.ForeignCluster) (*netv1alpha1.
 	if len(netConfigList.Items) != 1 {
 		if len(netConfigList.Items) == 0 {
 			klog.Infof("no resource of type %s for remote cluster %s not found", netv1alpha1.GroupVersion.String(), clusterID)
-			return nil, apierrors.NewNotFound(netv1alpha1.GroupResource, clusterID)
+			return nil, apierrors.NewNotFound(netv1alpha1.TunnelEndpointGroupResource, clusterID)
 		} else {
 			klog.Errorf("more than one instances of type %s exists for remote cluster %s", netv1alpha1.GroupVersion.String(), clusterID)
 			return nil, fmt.Errorf("multiple instances of %s for remote cluster %s", netv1alpha1.GroupVersion.String(), clusterID)
@@ -485,7 +485,7 @@ func TestNetConfigProcessing(t *testing.T) {
 	assert.Equal(t, netConfig2.Status.PodCIDRNAT, tep.Status.LocalRemappedPodCIDR)
 	assert.Equal(t, netConfig2.Spec.ClusterID, tep.Spec.ClusterID)
 	assert.Equal(t, netConfig1.Spec.PodCIDR, tep.Spec.PodCIDR)
-	assert.Equal(t, netConfig1.Spec.TunnelPublicIP, tep.Spec.TunnelPublicIP)
+	assert.Equal(t, netConfig1.Spec.EndpointIP, tep.Spec.EndpointIP)
 	assert.Equal(t, "Ready", tep.Status.Phase)
 
 	//test4

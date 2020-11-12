@@ -2,6 +2,7 @@ package liqonet
 
 import (
 	"fmt"
+	netv1alpha1 "github.com/liqotech/liqo/apis/net/v1alpha1"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"net"
@@ -13,6 +14,39 @@ type NetLink interface {
 }
 
 type RouteManager struct {
+}
+
+func (r *RouteManager) EnsureRoutesPerCluster(interfaceName string, tep *netv1alpha1.TunnelEndpoint) error {
+	_, remotePodCIDR := getPodCIDRS(tep)
+
+	_, err := r.AddRoute(remotePodCIDR, "", interfaceName, false)
+	if err == unix.EEXIST {
+		return nil
+	}
+	if err != nil{
+		return err
+	}
+	return nil
+}
+
+//used to remove the routes when a tunnelEndpoint CR is removed
+func (r *RouteManager) removeRoutesPerCluster(tep *netv1alpha1.TunnelEndpoint) error {
+	_, remotePodCIDR := getPodCIDRS(tep)
+	ip, _, err := net.ParseCIDR(remotePodCIDR)
+	if err != nil{
+		return err
+	}
+	routes, err := netlink.RouteGet(ip)
+	if err != nil {
+		return err
+	}
+	for _, route := range routes{
+		err := r.DelRoute(route)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (rm *RouteManager) AddRoute(dst string, gw string, deviceName string, onLink bool) (netlink.Route, error) {

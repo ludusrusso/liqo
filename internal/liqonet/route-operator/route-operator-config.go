@@ -1,4 +1,4 @@
-package liqonetOperators
+package route_operator
 
 import (
 	configv1alpha1 "github.com/liqotech/liqo/apis/config/v1alpha1"

@@ -7,6 +7,7 @@ import (
 	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/liqotech/liqo/internal/utils/errdefs"
 	"golang.org/x/tools/go/ssa/interp/testdata/src/errors"
+	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -14,6 +15,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -21,7 +23,11 @@ const (
 	TunOpLabelKey   = "tunOp"
 )
 
-func getPodIP() (net.IP, error) {
+var (
+	ShutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGKILL}
+)
+
+func GetPodIP() (net.IP, error) {
 	ipAddress, isSet := os.LookupEnv("POD_IP")
 	if !isSet {
 		return nil, errdefs.NotFound("the pod IP is not set")
@@ -32,12 +38,28 @@ func getPodIP() (net.IP, error) {
 	return net.ParseIP(ipAddress), nil
 }
 
+func GetPodNamespace() (string, error) {
+	namespace, isSet := os.LookupEnv("POD_NAMESPACE")
+	if !isSet {
+		return "", errdefs.NotFound("the pod namespace is not set as an environment variable")
+	}
+	return namespace, nil
+}
+
 func GetNodeName() (string, error) {
 	nodeName, isSet := os.LookupEnv("NODE_NAME")
 	if !isSet {
 		return nodeName, errdefs.NotFound("NODE_NAME has not been set. check you manifest file")
 	}
 	return nodeName, nil
+}
+
+func GetPodName() (string, error) {
+	podName, isSet := os.LookupEnv("POD_NAME")
+	if !isSet{
+		return podName, errdefs.NotFound("POD_NAME has not been set. check you manifest file")
+	}
+	return podName, nil
 }
 
 func GetClusterPodCIDR() (string, error) {
@@ -48,7 +70,7 @@ func GetClusterPodCIDR() (string, error) {
 	return podCIDR, nil
 }
 
-func getInternalIPOfNode(node corev1.Node) (string, error) {
+func GetInternalIPOfNode(node *corev1.Node) (string, error) {
 	var internalIp string
 	for _, address := range node.Status.Addresses {
 		if address.Type == "InternalIP" {
@@ -76,11 +98,11 @@ func IsGatewayNode(clientset *kubernetes.Clientset) (bool, error) {
 		return isGatewayNode, errdefs.NotFound("no gateway node has been found")
 	}
 	//check if my ip node is the same as the internal ip of the gateway node
-	podIP, err := getPodIP()
+	podIP, err := GetPodIP()
 	if err != nil {
 		return isGatewayNode, err
 	}
-	internalIP, err := getInternalIPOfNode(nodesList.Items[0])
+	internalIP, err := GetInternalIPOfNode(&nodesList.Items[0])
 	if err != nil {
 		return isGatewayNode, fmt.Errorf("unable to get internal ip of the gateway node: %v", err)
 	}
@@ -103,11 +125,11 @@ func GetGatewayVxlanIP(clientset *kubernetes.Clientset, vxlanConfig VxlanNetConf
 		klog.V(4).Infof("number of gateway nodes found: %d", len(nodesList.Items))
 		return gatewayVxlanIP, errdefs.NotFound("no gateway node has been found")
 	}
-	internalIP, err := getInternalIPOfNode(nodesList.Items[0])
+	internalIP, err := GetInternalIPOfNode(&nodesList.Items[0])
 	if err != nil {
 		return gatewayVxlanIP, fmt.Errorf("unable to get internal ip of the gateway node: %v", err)
 	}
-	token := strings.Split(vxlanConfig.Network, "/")
+	token := strings.Split(vxlanConfig.NetworkPrefix, "/")
 	vxlanNet := token[0]
 	//derive IP for the vxlan device
 	//take the last octet of the podIP
@@ -125,13 +147,13 @@ func getRemoteVTEPS(clientset *kubernetes.Clientset) ([]string, error) {
 		return nil, fmt.Errorf(" Unable to list nodes with label 'type != virtual-node': %v", err)
 	}
 	//get my podIP so i don't put consider it a s VTEP
-	podIP, err := getPodIP()
+	podIP, err := GetPodIP()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get pod ip while getting remoteVTEPs: %v", err)
 	}
 	//populate the VTEPs
 	for _, node := range nodesList.Items {
-		internalIP, err := getInternalIPOfNode(node)
+		internalIP, err := GetInternalIPOfNode(&node)
 		if err != nil {
 			//Log the error but don't exit
 			logger.Error(err, "unable to get internal ip of the node named -> %s", node.Name)
@@ -203,4 +225,12 @@ func GetClusterID(client *kubernetes.Clientset, cmName, namespace string) (strin
 	}
 	clusterID := cm.Data[cmName]
 	return clusterID, nil
+}
+
+func  EnableIPForwarding () error{
+	err := ioutil.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1"), 0600)
+	if err != nil {
+		return fmt.Errorf("unable to enable ip forwaring in the gateway pod: %v", err)
+	}
+	return nil
 }

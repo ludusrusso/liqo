@@ -3,9 +3,11 @@ package liqonet
 import (
 	"fmt"
 	"github.com/vishvananda/netlink"
+	"io/ioutil"
 	"k8s.io/klog"
 	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"strings"
 	"syscall"
 )
 
@@ -40,6 +42,7 @@ func NewVXLANDevice(devAttrs *VxlanDeviceAttrs) (*VxlanDevice, error) {
 		VxlanId: int(devAttrs.Vni),
 		SrcAddr: devAttrs.VtepAddr,
 		Port:    devAttrs.VtepPort,
+		Learning: true,
 	}
 
 	link, err := CreateVxLanLink(link)
@@ -129,6 +132,14 @@ func (vxlan *VxlanDevice) ConfigureIPAddress(ipAddress net.IP, mask net.IPMask) 
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("unable to configure address %s on vxlan interface %s. %v", ipAddress, vxlan.Link.Name, err)
+	}
+	return nil
+}
+
+func (vxlan *VxlanDevice) EnableRPFilter () error{
+	err := ioutil.WriteFile(strings.Join([]string{"/proc/sys/net/ipv4/conf/", vxlan.Link.Name, "/rp_filter"}, ""), []byte("2"), 0600)
+	if err != nil {
+		return fmt.Errorf("unable to update vxlan rp_filter proc entry for interface %s, err: %s", vxlan.Link.Name, err)
 	}
 	return nil
 }

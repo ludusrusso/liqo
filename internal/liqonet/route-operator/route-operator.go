@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package liqonetOperators
+package route_operator
 
 import (
 	"context"
@@ -20,10 +20,15 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 	netv1alpha1 "github.com/liqotech/liqo/apis/net/v1alpha1"
 	liqonetOperator "github.com/liqotech/liqo/pkg/liqonet"
+	"github.com/liqotech/liqo/pkg/liqonet/wireguard"
 	"github.com/vishvananda/netlink"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"net"
@@ -41,6 +46,14 @@ import (
 
 var (
 	shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGKILL}
+
+	ResyncPeriod = 30 * time.Second
+
+	result = ctrl.Result{
+		Requeue:      false,
+		RequeueAfter: 5 * time.Second,
+	}
+	defaultPodCIDRValue = "None"
 )
 
 const (
@@ -59,19 +72,24 @@ const (
 // RouteController reconciles a TunnelEndpoint object
 type RouteController struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	clientset      kubernetes.Clientset
-	Recorder       record.EventRecorder
-	NodeName       string
+	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
+
 	ClientSet      *kubernetes.Clientset
 	RemoteVTEPs    []string
 	IsGateway      bool
+	NodeName       string
+	Namespace string
+	PodIP string
+	Wg *wireguard.Wireguard
 	VxlanNetwork   string
 	GatewayVxlanIP string
 	VxlanIfaceName string
 	VxlanPort      int
 	IPtables       liqonetOperator.IPTables
 	NetLink        liqonetOperator.NetLink
+	VxlanDev       *liqonetOperator.VxlanDevice
+	DynClient      dynamic.Interface
 	ClusterPodCIDR string
 	Configured     chan bool //channel to comunicate when the podCIDR has been set
 	IsConfigured   bool      //true when the operator is configured and ready to be started
@@ -832,4 +850,12 @@ func (r *RouteController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).WithEventFilter(resourceToBeProccesedPredicate).
 		For(&netv1alpha1.TunnelEndpoint{}).
 		Complete(r)
+}
+
+func (r *RouteController) Watcher(sharedDynFactory dynamicinformer.DynamicSharedInformerFactory, resourceType schema.GroupVersionResource, handlerFuncs cache.ResourceEventHandlerFuncs, stopCh chan struct{}) {
+	dynInformer := sharedDynFactory.ForResource(resourceType)
+	klog.Infof("starting watcher for %s", resourceType.String())
+	//adding handlers to the informer
+	dynInformer.Informer().AddEventHandler(handlerFuncs)
+	dynInformer.Informer().Run(stopCh)
 }

@@ -190,8 +190,8 @@ func getCluster() (*Cluster, manager.Manager, *configv1alpha1.ClusterConfig) {
 
 	netCfg := *cluster.cfg
 	netCfg.ContentConfig.GroupVersion = &nettypes.GroupVersion
-	crdClient.AddToRegistry("networkconfigs", &nettypes.NetworkConfig{}, &nettypes.NetworkConfigList{}, nil, nettypes.GroupResource)
-	crdClient.AddToRegistry("tunnelendpoints", &nettypes.TunnelEndpoint{}, &nettypes.TunnelEndpointList{}, nil, nettypes.GroupResource)
+	crdClient.AddToRegistry("networkconfigs", &nettypes.NetworkConfig{}, &nettypes.NetworkConfigList{}, nil, nettypes.TunnelEndpointGroupResource)
+	crdClient.AddToRegistry("tunnelendpoints", &nettypes.TunnelEndpoint{}, &nettypes.TunnelEndpointList{}, nil, nettypes.TunnelEndpointGroupResource)
 
 	err = v1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {
@@ -285,10 +285,10 @@ func getClusterConfig(config rest.Config) *configv1alpha1.ClusterConfig {
 				ReservedSubnets: []string{"10.0.0.0/16"},
 				PodCIDR:         "192.168.1.1",
 				VxlanNetConfig: liqonet.VxlanNetConfig{
-					Network:    "",
-					DeviceName: "",
-					Port:       "",
-					Vni:        "",
+					NetworkPrefix: "",
+					DeviceName:    "",
+					Port:          "",
+					Vni:           "",
 				},
 			},
 		},

@@ -9,6 +9,7 @@ require (
 	github.com/apparentlymart/go-cidr v1.1.0
 	github.com/atotto/clipboard v0.1.2
 	github.com/coreos/go-iptables v0.4.5
+	github.com/cratonica/2goarray v0.0.0-20190331194516-514510793eaa // indirect
 	github.com/gen2brain/beeep v0.0.0-20200420150314-13046a26d502
 	github.com/gen2brain/dlgs v0.0.0-20200211102745-b9c2664df42f
 	github.com/getlantern/systray v0.0.0-20200324212034-d3ab4fd25d99
@@ -39,10 +40,13 @@ require (
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
+	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
-	golang.org/x/sys v0.0.0-20201113233024-12cec1faf1ba
+	golang.org/x/sys v0.0.0-20201126233918-771906719818
+	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
 	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/tools v0.0.0-20201116002733-ac45abd4c88c
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.19.4
