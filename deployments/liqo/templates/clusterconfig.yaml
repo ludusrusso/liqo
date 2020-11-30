@@ -32,6 +32,8 @@ spec:
     port: 6443
     service: _liqo._tcp
     ttl: 90
+  authConfig:
+    allowEmptyToken: true
   liqonetConfig:
     podCIDR: {{ .Values.podCIDR }}
     serviceCIDR: {{ .Values.serviceCIDR }}

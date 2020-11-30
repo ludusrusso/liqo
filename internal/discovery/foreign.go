@@ -1,7 +1,6 @@
 package discovery
 
 import (
-	"context"
 	"errors"
 	"github.com/liqotech/liqo/apis/discovery/v1alpha1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
@@ -112,6 +111,7 @@ func (discovery *DiscoveryCtrl) createForeign(data *discoveryData, sd *v1alpha1.
 			Namespace:     data.TxtData.Namespace,
 			ApiUrl:        data.TxtData.ApiUrl,
 			DiscoveryType: discoveryType,
+			AuthUrl:       data.AuthData.GetUrl(),
 		},
 	}
 	fc.LastUpdateNow()
@@ -162,15 +162,6 @@ func (discovery *DiscoveryCtrl) CheckUpdate(data *discoveryData, fc *v1alpha1.Fo
 			fc.Status.Ttl = data.TxtData.Ttl
 		} else if searchDomain != nil && discoveryType == v1alpha1.WanDiscovery {
 			fc.Spec.Join = searchDomain.Spec.AutoJoin
-		}
-		if needsToReload && fc.Status.Outgoing.CaDataRef != nil {
-			// delete it only if the remote cluster moved
-			err := discovery.crdClient.Client().CoreV1().Secrets(fc.Status.Outgoing.CaDataRef.Namespace).Delete(context.TODO(), fc.Status.Outgoing.CaDataRef.Name, metav1.DeleteOptions{})
-			if err != nil {
-				klog.Error(err)
-				return nil, false, err
-			}
-			fc.Status.Outgoing.CaDataRef = nil
 		}
 		fc.LastUpdateNow()
 		tmp, err := discovery.crdClient.Resource("foreignclusters").Update(fc.Name, fc, metav1.UpdateOptions{})

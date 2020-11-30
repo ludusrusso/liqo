@@ -35,6 +35,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = authService.GetAuthServiceConfig(kubeconfigPath); err != nil {
+		klog.Error(err)
+		os.Exit(1)
+	}
+
 	if err = authService.Start(listeningPort, certFile, keyFile); err != nil {
 		klog.Error(err)
 		os.Exit(1)

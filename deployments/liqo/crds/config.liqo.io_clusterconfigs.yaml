@@ -136,6 +136,13 @@ spec:
                 required:
                 - dashboardConfig
                 type: object
+              authConfig:
+                properties:
+                  allowEmptyToken:
+                    default: false
+                    description: Allow remote clusters to get a role with an empty token
+                    type: boolean
+                type: object
               discoveryConfig:
                 properties:
                   authService:
@@ -234,6 +241,7 @@ spec:
             required:
             - advertisementConfig
             - agentConfig
+            - authConfig
             - discoveryConfig
             - liqonetConfig
             type: object

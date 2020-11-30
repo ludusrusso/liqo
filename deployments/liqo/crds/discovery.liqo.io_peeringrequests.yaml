@@ -32,6 +32,9 @@ spec:
           spec:
             description: PeeringRequestSpec defines the desired state of PeeringRequest
             properties:
+              authUrl:
+                description: Local auth service address
+                type: string
               clusterIdentity:
                 description: Foreign Cluster Identity
                 properties:
@@ -73,6 +76,7 @@ spec:
                 description: Namespace where Liqo is deployed
                 type: string
             required:
+            - authUrl
             - clusterIdentity
             - namespace
             type: object
